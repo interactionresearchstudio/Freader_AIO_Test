@@ -1,6 +1,8 @@
 #include <espnow.h>
 #include <ESP8266WiFi.h>
 
+uint8_t globalMac[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+
 typedef struct message_struct {
   uint8_t rfid[4];
 } message_struct;
@@ -16,6 +18,9 @@ void setup() {
     Serial.println("ESPNow Init Failed");
     ESP.restart();
   }
+
+  esp_now_set_self_role(ESP_NOW_ROLE_CONTROLLER);
+  esp_now_add_peer(globalMac, ESP_NOW_ROLE_SLAVE, 1, NULL, 0);
 }
 
 void loop() {
