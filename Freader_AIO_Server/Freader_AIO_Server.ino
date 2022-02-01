@@ -29,7 +29,7 @@ AdafruitIO_Feed *freader1 = io.feed("freader-hucknall-1");
 #include <WiFi.h>
 
 uint8_t globalMac[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-
+char rfidStr[18];
 typedef struct message_struct {
   uint8_t rfid[4];
 } message_struct;
@@ -43,7 +43,7 @@ void setup() {
 
   // wait for serial monitor to open
   while (! Serial);
-
+  WiFi.mode(WIFI_STA);
   if (esp_now_init() == ESP_OK) {
     Serial.println("ESPNow Init Success");
   }
@@ -54,26 +54,14 @@ void setup() {
 
   esp_now_register_recv_cb(onDataReceive);
 
-  // connect to io.adafruit.com
-  Serial.print("Connecting to Adafruit IO");
-  io.connect();
-
-  // wait for a connection
-  while (io.status() < AIO_CONNECTED) {
-    Serial.print(".");
-    delay(500);
-  }
-
-  // we are connected
-  Serial.println();
-  Serial.println(io.statusText());
 
 }
 
 double lat = 42.331427;
 double lon = -83.045754;
 double ele = 0;
-
+bool toSend = false;
+char rfid[18];
 
 void loop() {
 
@@ -81,19 +69,49 @@ void loop() {
   // it should always be present at the top of your loop
   // function. it keeps the client connected to
   // io.adafruit.com, and processes any incoming data.
-  io.run();
+  if (toSend) {
+    toSend = false;
+    
+      // connect to io.adafruit.com
+      Serial.print("Connecting to Adafruit IO");
+      io.connect();
 
-//  String tag = "01D5F3B2";
-//  // return if the value hasn't changed
-//
-//  // save the current state to the analog feed
-//  Serial.print("sending -> ");
-//  Serial.println(tag);
-//  freader1->save(tag, lat, lon, ele);
-//
+      // wait for a connection
+      while (io.status() < AIO_CONNECTED) {
+      Serial.print(".");
+      delay(500);
+      }
+
+      // we are connected
+      Serial.println();
+      Serial.println(io.statusText());
+      
+      freader1->save(rfidStr, lat, lon, ele);
+
+      delay(4000);
+      WiFi.mode(WIFI_STA);
+     // WiFi.disconnect();
+      if (esp_now_init() == ESP_OK) {
+      Serial.println("ESPNow Init Success");
+      }
+      else {
+      Serial.println("ESPNow Init Failed");
+      ESP.restart();
+      }
+      io.run();
+    
+  }
+
+  //  String tag = "01D5F3B2";
+  //  // return if the value hasn't changed
+  //
+  //  // save the current state to the analog feed
+  //  Serial.print("sending -> ");
+  //  Serial.println(tag);
+  //  freader1->save(tag, lat, lon, ele);
+  //
   delay(10);
 }
-
 // On data received
 void onDataReceive(const uint8_t * mac_addr, const uint8_t *incomingData, int len) {
   memcpy(&msg, incomingData, sizeof(msg));
@@ -106,10 +124,9 @@ void onDataReceive(const uint8_t * mac_addr, const uint8_t *incomingData, int le
   Serial.print("Bytes received: ");
   Serial.println(len);
   Serial.print("Data: ");
-  char rfid[18];
-  snprintf(macStr, sizeof(macStr), "%02x%02x%02x%02x",
-           msg.rfid[0], msg.rfid[1], msg.rfid[2], msg.rfid[3]);
-  Serial.println(rfid);
+  
+  snprintf(rfidStr, sizeof(rfidStr), "%02x%02x%02x%02x", msg.rfid[0], msg.rfid[1], msg.rfid[2], msg.rfid[3]);
+  //Serial.println(rfidStr);
   Serial.print("sending...");
-  freader1->save(rfid, lat, lon, ele);
+  toSend = true;
 }
